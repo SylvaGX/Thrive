@@ -461,7 +461,7 @@
       <Version>1.2.0-beta.406</Version>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
-      <Version>2.2.1</Version>
+      <Version>2.2.2</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
