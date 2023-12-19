@@ -32,4 +32,10 @@ public enum MainGameState
     MulticellularStage,
 
     LateMulticellularEditor,
+
+    SocietyStage,
+
+    IndustrialStage,
+
+    SpaceStage,
 }

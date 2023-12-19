@@ -4,7 +4,7 @@ using Godot;
 /// <summary>
 ///   Screen capable of moving slides of gallery items.
 /// </summary>
-public class SlideScreen : CustomDialog
+public class SlideScreen : CustomWindow
 {
     public const float SLIDESHOW_INTERVAL = 6.0f;
     public const float TOOLBAR_DISPLAY_DURATION = 4.0f;
@@ -151,9 +151,6 @@ public class SlideScreen : CustomDialog
                 toolbarTween.Start();
             }
 
-            if (Input.MouseMode == Input.MouseModeEnum.Hidden)
-                Input.MouseMode = Input.MouseModeEnum.Visible;
-
             if (toolbarHideTimer < 0)
             {
                 toolbarTween.InterpolateProperty(
@@ -161,7 +158,11 @@ public class SlideScreen : CustomDialog
                 toolbarTween.InterpolateProperty(
                     closeButton, "modulate:a", null, 0, 0.5f, Tween.TransitionType.Linear, Tween.EaseType.InOut);
                 toolbarTween.Start();
-                Input.MouseMode = Input.MouseModeEnum.Hidden;
+                MouseCaptureManager.SetMouseHideState(true);
+            }
+            else
+            {
+                MouseCaptureManager.SetMouseHideState(false);
             }
         }
 
@@ -196,51 +197,6 @@ public class SlideScreen : CustomDialog
             return false;
 
         return RetreatSlide();
-    }
-
-    public override void CustomShow()
-    {
-        if (Items == null)
-            return;
-
-        base.CustomShow();
-
-        SlideControlsVisible = false;
-
-        var currentItemRect = Items[currentSlideIndex].GetGlobalRect();
-        RectGlobalPosition = currentItemRect.Position;
-        RectSize = currentItemRect.Size;
-
-        popupTween.InterpolateProperty(
-            this, "rect_position", null, GetFullRect().Position, 0.2f, Tween.TransitionType.Sine, Tween.EaseType.Out);
-        popupTween.InterpolateProperty(
-            this, "rect_size", null, GetFullRect().Size, 0.2f, Tween.TransitionType.Sine, Tween.EaseType.Out);
-        popupTween.Start();
-
-        if (!popupTween.IsConnected("tween_completed", this, nameof(OnScaledUp)))
-            popupTween.Connect("tween_completed", this, nameof(OnScaledUp), null, (uint)ConnectFlags.Oneshot);
-    }
-
-    public override void CustomHide()
-    {
-        if (Items == null)
-            return;
-
-        FullRect = false;
-        SlideControlsVisible = false;
-        BoundToScreenArea = false;
-
-        var currentItemRect = Items[currentSlideIndex].GetGlobalRect();
-
-        popupTween.InterpolateProperty(this, "rect_position", null, currentItemRect.Position, 0.2f,
-            Tween.TransitionType.Sine, Tween.EaseType.Out);
-        popupTween.InterpolateProperty(
-            this, "rect_size", null, currentItemRect.Size, 0.2f, Tween.TransitionType.Sine,
-            Tween.EaseType.Out);
-        popupTween.Start();
-
-        if (!popupTween.IsConnected("tween_completed", this, nameof(OnScaledDown)))
-            popupTween.Connect("tween_completed", this, nameof(OnScaledDown), null, (uint)ConnectFlags.Oneshot);
     }
 
     public bool AdvanceSlide(bool fade = false, int searchCounter = 0)
@@ -283,11 +239,59 @@ public class SlideScreen : CustomDialog
         return true;
     }
 
+    protected override void OnOpen()
+    {
+        if (Items == null)
+        {
+            Hide();
+            return;
+        }
+
+        SlideControlsVisible = false;
+
+        var currentItemRect = Items[currentSlideIndex].GetGlobalRect();
+        RectGlobalPosition = currentItemRect.Position;
+        RectSize = currentItemRect.Size;
+
+        popupTween.InterpolateProperty(
+            this, "rect_position", null, GetFullRect().Position, 0.2f, Tween.TransitionType.Sine, Tween.EaseType.Out);
+        popupTween.InterpolateProperty(
+            this, "rect_size", null, GetFullRect().Size, 0.2f, Tween.TransitionType.Sine, Tween.EaseType.Out);
+        popupTween.Start();
+
+        if (!popupTween.IsConnected("tween_completed", this, nameof(OnScaledUp)))
+            popupTween.Connect("tween_completed", this, nameof(OnScaledUp), null, (uint)ConnectFlags.Oneshot);
+    }
+
+    protected override void OnClose()
+    {
+        if (Items == null)
+        {
+            Hide();
+            return;
+        }
+
+        FullRect = false;
+        SlideControlsVisible = false;
+
+        var currentItemRect = Items[currentSlideIndex].GetGlobalRect();
+
+        popupTween.InterpolateProperty(this, "rect_position", null, currentItemRect.Position, 0.2f,
+            Tween.TransitionType.Sine, Tween.EaseType.Out);
+        popupTween.InterpolateProperty(
+            this, "rect_size", null, currentItemRect.Size, 0.2f, Tween.TransitionType.Sine,
+            Tween.EaseType.Out);
+        popupTween.Start();
+
+        if (!popupTween.IsConnected("tween_completed", this, nameof(OnScaledDown)))
+            popupTween.Connect("tween_completed", this, nameof(OnScaledDown), null, (uint)ConnectFlags.Oneshot);
+    }
+
     protected override void OnHidden()
     {
         base.OnHidden();
         SlideshowMode = false;
-        Input.MouseMode = Input.MouseModeEnum.Visible;
+        MouseCaptureManager.SetMouseHideState(false);
     }
 
     protected override void Dispose(bool disposing)
@@ -315,7 +319,7 @@ public class SlideScreen : CustomDialog
     private void ChangeSlide(bool fade)
     {
         if (!Visible)
-            CustomShow();
+            Open();
 
         if (!fade)
         {
@@ -419,7 +423,6 @@ public class SlideScreen : CustomDialog
 
         SlideControlsVisible = true;
         FullRect = true;
-        BoundToScreenArea = true;
     }
 
     private void OnScaledDown(Object @object, NodePath key)
@@ -451,7 +454,7 @@ public class SlideScreen : CustomDialog
 
     private void OnCloseButtonPressed()
     {
-        CustomHide();
+        Close();
     }
 
     private void OnCloseButtonUpdate()

@@ -25,7 +25,7 @@ corner_radius_bottom_left = 5
 
 [node name="ToolTipManager" type="CanvasLayer"]
 pause_mode = 2
-layer = 3
+layer = 128
 script = ExtResource( 23 )
 
 [node name="GroupHolder" type="Control" parent="."]
@@ -4135,7 +4135,7 @@ mouse_filter = 2
 
 [node name="navigationHint" parent="GroupHolder/patchMap" instance=ExtResource( 1 )]
 Description = "PATCH_MAP_NAVIGATION_TOOLTIP"
-DisplayDelay = 0.5
+DisplayDelay = 2.5
 DescriptionLabelPath = NodePath("MarginContainer/VBoxContainer/Description")
 
 [editable path="GroupHolder/editor/rigiditySlider"]

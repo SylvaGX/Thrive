@@ -94,9 +94,6 @@ public class NewGameSettings : ControlWithInput
     public NodePath LimitGrowthRateButtonPath = null!;
 
     [Export]
-    public NodePath MapTypeButtonPath = null!;
-
-    [Export]
     public NodePath LifeOriginButtonPath = null!;
 
     [Export]
@@ -172,7 +169,6 @@ public class NewGameSettings : ControlWithInput
     private Button limitGrowthRateButton = null!;
 
     // Planet controls
-    private OptionButton mapTypeButton = null!;
     private OptionButton lifeOriginButton = null!;
     private OptionButton lifeOriginButtonAdvanced = null!;
     private Button lawkButton = null!;
@@ -202,6 +198,9 @@ public class NewGameSettings : ControlWithInput
 
     [Signal]
     public delegate void OnWantToSwitchToOptionsMenu();
+
+    [Signal]
+    public delegate void OnNewGameVideoStarted();
 
     private enum SelectedOptionsTab
     {
@@ -242,7 +241,6 @@ public class NewGameSettings : ControlWithInput
         freeGlucoseCloudButton = GetNode<Button>(FreeGlucoseCloudButtonPath);
         passiveReproductionButton = GetNode<Button>(PassiveReproductionButtonPath);
         limitGrowthRateButton = GetNode<Button>(LimitGrowthRateButtonPath);
-        mapTypeButton = GetNode<OptionButton>(MapTypeButtonPath);
         lifeOriginButton = GetNode<OptionButton>(LifeOriginButtonPath);
         lifeOriginButtonAdvanced = GetNode<OptionButton>(LifeOriginButtonAdvancedPath);
         lawkButton = GetNode<Button>(LAWKButtonPath);
@@ -373,7 +371,6 @@ public class NewGameSettings : ControlWithInput
                 FreeGlucoseCloudButtonPath.Dispose();
                 PassiveReproductionButtonPath.Dispose();
                 LimitGrowthRateButtonPath.Dispose();
-                MapTypeButtonPath.Dispose();
                 LifeOriginButtonPath.Dispose();
                 LifeOriginButtonAdvancedPath.Dispose();
                 LAWKButtonPath.Dispose();
@@ -480,7 +477,6 @@ public class NewGameSettings : ControlWithInput
             settings.Difficulty = difficulty;
         }
 
-        settings.MapType = MapTypeIndexToValue(mapTypeButton.Selected);
         settings.Origin = (WorldGenerationSettings.LifeOrigin)lifeOriginButton.Selected;
         settings.LAWK = lawkButton.Pressed;
         settings.DayNightCycleEnabled = dayNightCycleButton.Pressed;
@@ -494,22 +490,7 @@ public class NewGameSettings : ControlWithInput
         // before the stage music starts)
         Jukebox.Instance.Stop(true);
 
-        var transitions = new List<ITransition>();
-
-        if (Settings.Instance.PlayMicrobeIntroVideo && LaunchOptions.VideosEnabled &&
-            SafeModeStartupHandler.AreVideosAllowed())
-        {
-            transitions.Add(TransitionManager.Instance.CreateScreenFade(ScreenFade.FadeType.FadeOut, 1.5f));
-            transitions.Add(TransitionManager.Instance.CreateCutscene(
-                "res://assets/videos/microbe_intro2.ogv", 0.65f));
-        }
-        else
-        {
-            // People who disable the cutscene are impatient anyway so use a reduced fade time
-            transitions.Add(TransitionManager.Instance.CreateScreenFade(ScreenFade.FadeType.FadeOut, 0.2f));
-        }
-
-        TransitionManager.Instance.AddSequence(transitions, () =>
+        void OnStartGame()
         {
             MainMenu.OnEnteringGame();
 
@@ -517,7 +498,27 @@ public class NewGameSettings : ControlWithInput
             var microbeStage = (MicrobeStage)SceneManager.Instance.LoadScene(MainGameState.MicrobeStage).Instance();
             microbeStage.CurrentGame = GameProperties.StartNewMicrobeGame(settings);
             SceneManager.Instance.SwitchToScene(microbeStage);
-        });
+        }
+
+        if (Settings.Instance.PlayMicrobeIntroVideo && LaunchOptions.VideosEnabled &&
+            SafeModeStartupHandler.AreVideosAllowed())
+        {
+            TransitionManager.Instance.AddSequence(TransitionManager.Instance.CreateScreenFade(
+                ScreenFade.FadeType.FadeOut, 1.5f), () =>
+            {
+                // Notify that the video now starts to allow the main menu to hide its expensive 3D rendering
+                EmitSignal(nameof(OnNewGameVideoStarted));
+            });
+
+            TransitionManager.Instance.AddSequence(TransitionManager.Instance.CreateCutscene(
+                "res://assets/videos/microbe_intro2.ogv", 0.65f), OnStartGame, true, false);
+        }
+        else
+        {
+            // People who disable the cutscene are impatient anyway so use a reduced fade time
+            TransitionManager.Instance.AddSequence(TransitionManager.Instance.CreateScreenFade(
+                ScreenFade.FadeType.FadeOut, 0.2f), OnStartGame);
+        }
     }
 
     // GUI Control Callbacks
@@ -721,20 +722,6 @@ public class NewGameSettings : ControlWithInput
     private void OnMapTypeSelected(int index)
     {
         _ = index;
-    }
-
-    private WorldGenerationSettings.PatchMapType MapTypeIndexToValue(int index)
-    {
-        switch (index)
-        {
-            case 0:
-                return WorldGenerationSettings.PatchMapType.Procedural;
-            case 1:
-                return WorldGenerationSettings.PatchMapType.Classic;
-            default:
-                GD.PrintErr($"Index {index} does not correspond to known map type");
-                return WorldGenerationSettings.PatchMapType.Procedural;
-        }
     }
 
     private void OnLAWKToggled(bool pressed)

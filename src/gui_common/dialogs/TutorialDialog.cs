@@ -81,8 +81,10 @@ public class TutorialDialog : CustomDialog
         KeyPromptHelper.IconsChanged -= OnInputTypeChanged;
     }
 
-    protected override void OnShown()
+    protected override void OnOpen()
     {
+        base.OnOpen();
+
         // Don't animate if currently running inside the editor
         if (Engine.EditorHint)
             return;

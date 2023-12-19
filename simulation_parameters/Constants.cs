@@ -23,6 +23,15 @@ public static class Constants
     public const float PLAYER_RESPAWN_TIME = 5.0f;
 
     /// <summary>
+    ///   How long the initial compounds should last (in seconds)
+    /// </summary>
+    public const float INITIAL_COMPOUND_TIME = 40.0f;
+
+    public const float MULTICELLULAR_INITIAL_COMPOUND_MULTIPLIER = 1.5f;
+
+    public const int FULL_INITIAL_GLUCOSE_SMALL_SIZE_LIMIT = 3;
+
+    /// <summary>
     ///   The maximum duration the player is shown being ingested before they are auto respawned.
     /// </summary>
     public const float PLAYER_ENGULFED_DEATH_DELAY_MAX = 10.0f;
@@ -99,12 +108,15 @@ public static class Constants
     // Should be the same as its counterpart in shaders/CompoundCloudPlane.shader
     public const float CLOUD_MAX_INTENSITY_SHOWN = 1000;
 
-    // Should be the same as its counterpart in shaders/CompoundCloudPlane.shader
-    public const float CLOUD_NOISE_UV_OFFSET_MULTIPLIER = 2.5f;
-
     public const float CLOUD_CHEAT_DENSITY = 16000.0f;
 
     public const int MEMBRANE_RESOLUTION = 10;
+
+    public const float MEMBRANE_ROOM_FOR_ORGANELLES = 1.9f;
+    public const float MEMBRANE_NUMBER_OF_WAVES = 9.0f;
+    public const float MEMBRANE_WAVE_HEIGHT_DEPENDENCE_ON_SIZE = 0.3f;
+    public const float MEMBRANE_WAVE_HEIGHT_MULTIPLIER = 0.025f;
+    public const float MEMBRANE_WAVE_HEIGHT_MULTIPLIER_CELL_WALL = 0.015f;
 
     /// <summary>
     ///   BASE MOVEMENT ATP cost. Cancels out a little bit more then one cytoplasm's glycolysis
@@ -366,6 +378,37 @@ public static class Constants
 
     public const float MEMBRANE_DISSOLVE_SPEED = 0.3f;
 
+    public const float INTERACTION_BUTTONS_FULL_UPDATE_INTERVAL = 0.1f;
+
+    public const int INTERACTION_BUTTONS_MAX_COUNT = 50;
+
+    public const float INTERACTION_BUTTON_DEFAULT_Y_OFFSET = 1.0f;
+
+    public const int INTERACTION_BUTTON_SIZE = 32;
+    public const int INTERACTION_BUTTON_X_PIXEL_OFFSET = -INTERACTION_BUTTON_SIZE / 2;
+    public const int INTERACTION_BUTTON_Y_PIXEL_OFFSET = -INTERACTION_BUTTON_SIZE / 2;
+
+    public const float INTERACTION_DEFAULT_VISIBILITY_DISTANCE = 20.0f;
+    public const float INTERACTION_DEFAULT_INTERACT_DISTANCE = 8.5f;
+
+    public const float INTERACTION_MAX_ANGLE_TO_VIEW = Mathf.Pi;
+
+    public const float WORLD_PROGRESS_BAR_FULL_UPDATE_INTERVAL = 0.1f;
+    public const float WORLD_PROGRESS_BAR_MAX_DISTANCE = 15.0f;
+    public const float WORLD_PROGRESS_BAR_MAX_COUNT = 15;
+    public const float WORLD_PROGRESS_BAR_DEFAULT_WIDTH = 125;
+    public const float WORLD_PROGRESS_BAR_MIN_WIDTH_TO_SHOW = 20;
+    public const float WORLD_PROGRESS_BAR_DEFAULT_HEIGHT = 18;
+    public const float WORLD_PROGRESS_BAR_MIN_HEIGHT = 6;
+    public const float WORLD_PROGRESS_BAR_DISTANCE_SIZE_SCALE = 1.0f;
+    public const float WORLD_PROGRESS_DEFAULT_Y_OFFSET = 3.5f;
+
+    public const float INVENTORY_DRAG_START_ALLOWANCE = 0.15f;
+
+    public const float NAME_LABELS_FULL_UPDATE_INTERVAL = 0.2f;
+    public const int NAME_LABELS_MAX_COUNT_PER_CATEGORY = 30;
+    public const float NAME_LABEL_VISIBILITY_DISTANCE = 300.0f;
+
     /// <summary>
     ///   This is used just as the default value for health and max
     ///   health of a microbe. The default membrane actually
@@ -601,7 +644,7 @@ public static class Constants
     public const int METABALL_MOVE_COST = 3;
     public const int METABALL_RESIZE_COST = 3;
 
-    public const float COLONY_DIVIDE_EXTRA_DAUGHTER_OFFSET = 1;
+    public const float DIVIDE_EXTRA_DAUGHTER_OFFSET = 3.0f;
 
     // Corpse info
     public const float CORPSE_COMPOUND_COMPENSATION = 8.0f;
@@ -819,6 +862,7 @@ public static class Constants
     public const float MICROBE_REPRODUCTION_TUTORIAL_DELAY = 10;
     public const float HIDE_MICROBE_STAYING_ALIVE_TUTORIAL_AFTER = 60;
     public const float HIDE_MICROBE_DAY_NIGHT_TUTORIAL_AFTER = 20;
+    public const float HIDE_MICROBE_ENGULFED_TUTORIAL_AFTER = 35;
     public const float MICROBE_EDITOR_BUTTON_TUTORIAL_DELAY = 20;
 
     public const float DAY_NIGHT_TUTORIAL_LIGHT_MIN = 0.01f;
@@ -862,6 +906,11 @@ public static class Constants
 
     public const float BRAIN_POWER_REQUIRED_FOR_AWARE = 0.5f;
     public const float BRAIN_POWER_REQUIRED_FOR_AWAKENING = 5;
+
+    /// <summary>
+    ///   Squared distance after which a timed action is canceled due to moving too much
+    /// </summary>
+    public const float ACTION_CANCEL_DISTANCE = 5;
 
     /// <summary>
     ///   Main menu cancel priority. Main menu handles the cancel action for sub menus that don't have special needs
@@ -965,6 +1014,24 @@ public static class Constants
     public const string PLAYER_GROUP = "player";
 
     public const string PLAYER_REPRODUCED_GROUP = "player_offspring";
+
+    public const string INTERACTABLE_GROUP = "interactable";
+
+    public const string CITY_ENTITY_GROUP = "city";
+    public const string NAME_LABEL_GROUP = "labeled";
+
+    public const string PLANET_ENTITY_GROUP = "planet";
+    public const string SPACE_FLEET_ENTITY_GROUP = "fleet";
+    public const string SPACE_STRUCTURE_ENTITY_GROUP = "s_structure";
+
+    /// <summary>
+    ///   Group for entities that can show a progress bar above them in the GUI
+    /// </summary>
+    public const string PROGRESS_ENTITY_GROUP = "progress";
+
+    public const string STRUCTURE_ENTITY_GROUP = "structure";
+
+    public const string CITIZEN_GROUP = "citizen";
 
     public const string DELETION_HOLD_LOAD = "load";
     public const string DELETION_HOLD_MICROBE_EDITOR = "microbe_editor";
@@ -1147,6 +1214,74 @@ public static class Constants
     public const float PATCH_REGION_CONNECTION_LINE_WIDTH = 4.0f;
     public const float PATCH_REGION_BORDER_WIDTH = 6.0f;
     public const int PATCH_GENERATION_MAX_RETRIES = 100;
+
+    /// <summary>
+    ///   Extra time passed to <see cref="HUDMessages"/> when exiting the editor. Needs to be close to (or higher)
+    ///   than the long message time as defined in <see cref="HUDMessages.TimeToFadeFromDuration"/>
+    /// </summary>
+    public const float HUD_MESSAGES_EXTRA_ELAPSE_TIME_FROM_EDITOR = 11.2f;
+
+    public const float SOCIETY_STAGE_ENTER_ANIMATION_DURATION = 15;
+
+    public const float SOCIETY_STAGE_BUILDING_PROCESS_INTERVAL = 0.05f;
+
+    public const float SOCIETY_STAGE_CITIZEN_PROCESS_INTERVAL = 0.05f;
+
+    public const float SOCIETY_STAGE_CITIZEN_SPAWN_INTERVAL = 5.0f;
+
+    public const float SOCIETY_STAGE_RESEARCH_PROGRESS_INTERVAL = 1.0f;
+
+    public const float SOCIETY_CAMERA_ZOOM_INDUSTRIAL_EQUIVALENT = INDUSTRIAL_STAGE_SIZE_MULTIPLIER;
+
+    /// <summary>
+    ///   Scale of the world in industrial stage compared to the society stage
+    /// </summary>
+    public const float INDUSTRIAL_STAGE_SIZE_MULTIPLIER = 5.0f;
+
+    public const float INDUSTRIAL_STAGE_CITY_PROCESS_INTERVAL = 0.1f;
+
+    public const float CITY_SCREEN_UPDATE_INTERVAL = 0.1f;
+
+    public const int CITY_MAX_BUILD_QUEUE_LENGTH = 10;
+
+    public const int CITY_MAX_GARRISONED_UNITS = 10;
+
+    public const float SPACE_TO_INDUSTRIAL_SCALE_FACTOR = 0.1f;
+
+    public const float INDUSTRIAL_TO_SPACE_CAMERA_PAN_DURATION = 2.5f;
+
+    public const float INDUSTRIAL_TO_SPACE_CAMERA_ROCKET_FOLLOW_START = 12;
+    public const float INDUSTRIAL_TO_SPACE_CAMERA_ROCKET_FOLLOW_SPEED = 0.1f;
+    public const float INDUSTRIAL_TO_SPACE_CAMERA_MIN_HEIGHT_MULTIPLIER = 0.6f;
+    public const float INDUSTRIAL_TO_SPACE_CAMERA_ZOOM_SPEED = 0.6f;
+    public const float INDUSTRIAL_TO_SPACE_FADE_DURATION = 4;
+
+    public const float INDUSTRIAL_TO_SPACE_ROCKET_ACCELERATION = 0.005f;
+
+    public const float INDUSTRIAL_TO_SPACE_END_ROCKET_HEIGHT = 300;
+
+    public const float PLANET_SCREEN_UPDATE_INTERVAL = 0.1f;
+    public const float UNIT_SCREEN_UPDATE_INTERVAL = 0.05f;
+
+    public const float SPACE_STAGE_PLANET_PROCESS_INTERVAL = 0.1f;
+    public const float SPACE_STAGE_STRUCTURE_PROCESS_INTERVAL = 0.1f;
+
+    public const float SPACE_FLEET_MODEL_SCALE = 0.1f;
+
+    public const float SPACE_INITIAL_ANIMATION_MIN_ZOOM_SCALE = 0.3f;
+    public const float SPACE_INITIAL_ANIMATION_ZOOM_SPEED = 0.08f;
+
+    public const float SPACE_FLEET_SELECTION_RADIUS = 1.7f;
+
+    /// <summary>
+    ///   Names like "Pangonia Primus" are cool so we use those until it makes more sense to switch to roman numerals
+    /// </summary>
+    public const int NAMING_SWITCH_TO_ROMAN_NUMERALS_AFTER = 10;
+
+    /// <summary>
+    ///   How many pixels the cursor needs to be from a screen edge to activate edge panning
+    /// </summary>
+    public const int EDGE_PAN_PIXEL_THRESHOLD = 4;
 
     public const ControllerType DEFAULT_CONTROLLER_TYPE = ControllerType.XboxSeriesX;
     public const float MINIMUM_DELAY_BETWEEN_INPUT_TYPE_CHANGE = 0.3f;

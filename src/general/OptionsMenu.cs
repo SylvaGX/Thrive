@@ -8,6 +8,12 @@ using Saving;
 /// <summary>
 ///   Handles the logic for the options menu GUI.
 /// </summary>
+/// <remarks>
+///   <para>
+///     As this is a very large file, please pay close attention to ordering and grouping of variables and methods to
+///     match the tab and order they exist in the scene.
+///   </para>
+/// </remarks>
 public class OptionsMenu : ControlWithInput
 {
     // GUI Control Paths
@@ -84,6 +90,9 @@ public class OptionsMenu : ControlWithInput
 
     [Export]
     public NodePath DisplayPartNamesTogglePath = null!;
+
+    [Export]
+    public NodePath DisplayMenu3DBackgroundsTogglePath = null!;
 
     [Export]
     public NodePath GpuNamePath = null!;
@@ -221,6 +230,12 @@ public class OptionsMenu : ControlWithInput
     public NodePath ThreeDimensionalMovementPath = null!;
 
     [Export]
+    public NodePath MouseEdgePanEnabledPath = null!;
+
+    [Export]
+    public NodePath MouseEdgePanSensitivityPath = null!;
+
+    [Export]
     public NodePath InputGroupListPath = null!;
 
     [Export]
@@ -285,6 +300,9 @@ public class OptionsMenu : ControlWithInput
     public NodePath JSONDebugModePath = null!;
 
     [Export]
+    public NodePath ScreenEffectSelectPath = null!;
+
+    [Export]
     public NodePath CommitLabelPath = null!;
 
     [Export]
@@ -335,6 +353,7 @@ public class OptionsMenu : ControlWithInput
     private CustomCheckBox displayBackgroundParticlesToggle = null!;
     private CustomCheckBox guiLightEffectsToggle = null!;
     private CustomCheckBox displayPartNamesToggle = null!;
+    private CustomCheckBox displayMenu3DBackgroundsToggle = null!;
     private Label gpuName = null!;
     private Label usedRendererName = null!;
     private Label videoMemory = null!;
@@ -389,6 +408,9 @@ public class OptionsMenu : ControlWithInput
     private OptionButton twoDimensionalMovement = null!;
     private OptionButton threeDimensionalMovement = null!;
 
+    private Button mouseEdgePanEnabled = null!;
+    private Slider mouseEdgePanSensitivity = null!;
+
     private InputGroupList inputGroupList = null!;
 
     private ControllerDeadzoneConfiguration deadzoneConfigurationPopup = null!;
@@ -408,6 +430,7 @@ public class OptionsMenu : ControlWithInput
     private CustomCheckBox showNewPatchNotes = null!;
     private Label dismissedNoticeCount = null!;
     private OptionButton jsonDebugMode = null!;
+    private OptionButton screenEffectSelect = null!;
     private Label commitLabel = null!;
     private Label builtAtLabel = null!;
 
@@ -439,6 +462,8 @@ public class OptionsMenu : ControlWithInput
 
     private GameProperties? gameProperties;
 
+    private bool nodeReferencesResolved;
+
     // Signals
 
     [Signal]
@@ -464,6 +489,26 @@ public class OptionsMenu : ControlWithInput
 
     public override void _Ready()
     {
+        ResolveNodeReferences(true);
+
+        LoadLanguages();
+        LoadAudioOutputDevices();
+        LoadScreenEffects();
+
+        inputGroupList.OnControlsChanged += OnControlsChanged;
+
+        deadzoneConfigurationPopup.OnDeadzonesConfirmed += OnDeadzoneConfigurationChanged;
+
+        GetViewport().Connect("size_changed", this, nameof(DisplayResolution));
+
+        selectedOptionsTab = OptionsTab.Graphics;
+    }
+
+    public void ResolveNodeReferences(bool calledFromReady)
+    {
+        if (nodeReferencesResolved)
+            return;
+
         // Options control buttons
         backButton = GetNode<Button>(BackButtonPath);
         resetButton = GetNode<Button>(ResetButtonPath);
@@ -471,11 +516,26 @@ public class OptionsMenu : ControlWithInput
 
         // Tab selector buttons
         tabButtons = GetNode<TabButtons>(TabButtonsPath);
-        graphicsButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, GraphicsButtonPath));
-        soundButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, SoundButtonPath));
-        performanceButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, PerformanceButtonPath));
-        inputsButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, InputsButtonPath));
-        miscButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, MiscButtonPath));
+
+        // When _Ready is called the tab buttons will have been adjusted, so how we find the buttons needs different
+        // approaches based on how early this is called
+        if (calledFromReady)
+        {
+            graphicsButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, GraphicsButtonPath));
+            soundButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, SoundButtonPath));
+            performanceButton =
+                GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, PerformanceButtonPath));
+            inputsButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, InputsButtonPath));
+            miscButton = GetNode<Button>(tabButtons.GetAdjustedButtonPath(TabButtonsPath, MiscButtonPath));
+        }
+        else
+        {
+            graphicsButton = GetNode<Button>(GraphicsButtonPath);
+            soundButton = GetNode<Button>(SoundButtonPath);
+            performanceButton = GetNode<Button>(PerformanceButtonPath);
+            inputsButton = GetNode<Button>(InputsButtonPath);
+            miscButton = GetNode<Button>(MiscButtonPath);
+        }
 
         // Graphics
         graphicsTab = GetNode<Control>(GraphicsTabPath);
@@ -492,6 +552,7 @@ public class OptionsMenu : ControlWithInput
         displayBackgroundParticlesToggle = GetNode<CustomCheckBox>(DisplayBackgroundParticlesTogglePath);
         guiLightEffectsToggle = GetNode<CustomCheckBox>(GUILightEffectsTogglePath);
         displayPartNamesToggle = GetNode<CustomCheckBox>(DisplayPartNamesTogglePath);
+        displayMenu3DBackgroundsToggle = GetNode<CustomCheckBox>(DisplayMenu3DBackgroundsTogglePath);
         gpuName = GetNode<Label>(GpuNamePath);
         usedRendererName = GetNode<Label>(UsedRendererNamePath);
         videoMemory = GetNode<Label>(VideoMemoryPath);
@@ -512,9 +573,6 @@ public class OptionsMenu : ControlWithInput
         languageSelection = GetNode<OptionButton>(LanguageSelectionPath);
         resetLanguageButton = GetNode<Button>(ResetLanguageButtonPath);
         languageProgressLabel = GetNode<Label>(LanguageProgressLabelPath);
-
-        LoadLanguages();
-        LoadAudioOutputDevices();
 
         // Performance
         performanceTab = GetNode<Control>(PerformanceTabPath);
@@ -548,11 +606,12 @@ public class OptionsMenu : ControlWithInput
         twoDimensionalMovement = GetNode<OptionButton>(TwoDimensionalMovementPath);
         threeDimensionalMovement = GetNode<OptionButton>(ThreeDimensionalMovementPath);
 
+        mouseEdgePanEnabled = GetNode<Button>(MouseEdgePanEnabledPath);
+        mouseEdgePanSensitivity = GetNode<Slider>(MouseEdgePanSensitivityPath);
+
         inputGroupList = GetNode<InputGroupList>(InputGroupListPath);
-        inputGroupList.OnControlsChanged += OnControlsChanged;
 
         deadzoneConfigurationPopup = GetNode<ControllerDeadzoneConfiguration>(DeadzoneConfigurationPopupPath);
-        deadzoneConfigurationPopup.OnDeadzonesConfirmed += OnDeadzoneConfigurationChanged;
 
         // Misc
         miscTab = GetNode<Control>(MiscTabPath);
@@ -570,6 +629,7 @@ public class OptionsMenu : ControlWithInput
         showNewPatchNotes = GetNode<CustomCheckBox>(ShowNewPatchNotesPath);
         dismissedNoticeCount = GetNode<Label>(DismissedNoticeCountPath);
         jsonDebugMode = GetNode<OptionButton>(JSONDebugModePath);
+        screenEffectSelect = GetNode<OptionButton>(ScreenEffectSelectPath);
         commitLabel = GetNode<Label>(CommitLabelPath);
         builtAtLabel = GetNode<Label>(BuiltAtLabelPath);
         builtAtLabel.RegisterCustomFocusDrawer();
@@ -582,12 +642,29 @@ public class OptionsMenu : ControlWithInput
         patchNotesBox = GetNode<CustomDialog>(PatchNotesBoxPath);
         patchNotesDisplayer = GetNode<PatchNotesDisplayer>(PatchNotesDisplayerPath);
 
-        selectedOptionsTab = OptionsTab.Graphics;
+        nodeReferencesResolved = true;
+    }
 
-        cloudResolutionTitle.RegisterToolTipForControl("cloudResolution", "options");
-        guiLightEffectsToggle.RegisterToolTipForControl("guiLightEffects", "options");
-        assumeHyperthreading.RegisterToolTipForControl("assumeHyperthreading", "options");
-        unsavedProgressWarningEnabled.RegisterToolTipForControl("unsavedProgressWarning", "options");
+    public override void _EnterTree()
+    {
+        base._EnterTree();
+
+        ResolveNodeReferences(false);
+
+        cloudResolutionTitle.RegisterToolTipForControl("cloudResolution", "options", false);
+        guiLightEffectsToggle.RegisterToolTipForControl("guiLightEffects", "options", false);
+        assumeHyperthreading.RegisterToolTipForControl("assumeHyperthreading", "options", false);
+        unsavedProgressWarningEnabled.RegisterToolTipForControl("unsavedProgressWarning", "options", false);
+    }
+
+    public override void _ExitTree()
+    {
+        base._ExitTree();
+
+        cloudResolutionTitle.UnRegisterToolTipForControl("cloudResolution", "options");
+        guiLightEffectsToggle.UnRegisterToolTipForControl("guiLightEffects", "options");
+        assumeHyperthreading.UnRegisterToolTipForControl("assumeHyperthreading", "options");
+        unsavedProgressWarningEnabled.UnRegisterToolTipForControl("unsavedProgressWarning", "options");
     }
 
     public override void _Notification(int what)
@@ -598,10 +675,6 @@ public class OptionsMenu : ControlWithInput
             UpdateDefaultAudioOutputDeviceText();
             DisplayResolution();
             DisplayGpuInfo();
-        }
-        else if (what == NotificationResized)
-        {
-            DisplayResolution();
         }
     }
 
@@ -666,6 +739,8 @@ public class OptionsMenu : ControlWithInput
         // that is not efficient at all so instead we should set a flag here and ignore settings compare calls
         // while it is active
 
+        var simulationParameters = SimulationParameters.Instance;
+
         // Graphics
         vsync.Pressed = settings.VSync;
         fullScreen.Pressed = settings.FullScreen;
@@ -679,6 +754,7 @@ public class OptionsMenu : ControlWithInput
         displayBackgroundParticlesToggle.Pressed = settings.DisplayBackgroundParticles;
         guiLightEffectsToggle.Pressed = settings.GUILightEffectsEnabled;
         displayPartNamesToggle.Pressed = settings.DisplayPartNames;
+        displayMenu3DBackgroundsToggle.Pressed = settings.Menu3DBackgroundEnabled;
         DisplayResolution();
         DisplayGpuInfo();
 
@@ -737,6 +813,10 @@ public class OptionsMenu : ControlWithInput
         twoDimensionalMovement.Selected = Movement2DToIndex(settings.TwoDimensionalMovement);
         threeDimensionalMovement.Selected = Movement3DToIndex(settings.ThreeDimensionalMovement);
 
+        mouseEdgePanEnabled.Pressed = settings.PanStrategyViewWithMouse;
+        mouseEdgePanSensitivity.Value = settings.PanStrategyViewMouseSpeed;
+        mouseEdgePanSensitivity.Editable = mouseEdgePanEnabled.Pressed;
+
         BuildInputRebindControls();
 
         // Misc
@@ -756,6 +836,9 @@ public class OptionsMenu : ControlWithInput
         webFeedsEnabled.Pressed = settings.ThriveNewsFeedEnabled;
         showNewPatchNotes.Pressed = settings.ShowNewPatchNotes;
         jsonDebugMode.Selected = JSONDebugModeToIndex(settings.JSONDebugMode);
+        screenEffectSelect.Selected = settings.CurrentScreenEffect.Value != null ?
+            settings.CurrentScreenEffect.Value.Index :
+            simulationParameters.GetScreenEffectByIndex(0).Index;
         unsavedProgressWarningEnabled.Pressed = settings.ShowUnsavedProgressWarning;
 
         UpdateDismissedNoticeCount();
@@ -818,6 +901,7 @@ public class OptionsMenu : ControlWithInput
                 DisplayBackgroundParticlesTogglePath.Dispose();
                 GUILightEffectsTogglePath.Dispose();
                 DisplayPartNamesTogglePath.Dispose();
+                DisplayMenu3DBackgroundsTogglePath.Dispose();
                 GpuNamePath.Dispose();
                 UsedRendererNamePath.Dispose();
                 VideoMemoryPath.Dispose();
@@ -862,6 +946,8 @@ public class OptionsMenu : ControlWithInput
                 ControllerVerticalInvertedPath.Dispose();
                 TwoDimensionalMovementPath.Dispose();
                 ThreeDimensionalMovementPath.Dispose();
+                MouseEdgePanEnabledPath.Dispose();
+                MouseEdgePanSensitivityPath.Dispose();
                 InputGroupListPath.Dispose();
                 DeadzoneConfigurationPopupPath.Dispose();
                 MiscTabPath.Dispose();
@@ -885,6 +971,7 @@ public class OptionsMenu : ControlWithInput
                 ShowNewPatchNotesPath.Dispose();
                 DismissedNoticeCountPath.Dispose();
                 JSONDebugModePath.Dispose();
+                ScreenEffectSelectPath.Dispose();
                 CommitLabelPath.Dispose();
                 BuiltAtLabelPath.Dispose();
                 UnsavedProgressWarningPath.Dispose();
@@ -1424,6 +1511,17 @@ public class OptionsMenu : ControlWithInput
         }
     }
 
+    private void LoadScreenEffects()
+    {
+        var screenEffects = SimulationParameters.Instance.GetAllScreenEffects();
+
+        foreach (var effect in screenEffects.OrderBy(p => p.Index))
+        {
+            // The untranslated name will be translated automatically by Godot during runtime
+            screenEffectSelect.AddItem(effect.UntranslatedName);
+        }
+    }
+
     private void UpdateCurrentLanguageProgress()
     {
         string locale = TranslationServer.GetLocale();
@@ -1752,6 +1850,13 @@ public class OptionsMenu : ControlWithInput
         UpdateResetSaveButtonState();
     }
 
+    private void OnDisplay3DMenuBackgroundsToggled(bool toggle)
+    {
+        Settings.Instance.Menu3DBackgroundEnabled.Value = toggle;
+
+        UpdateResetSaveButtonState();
+    }
+
     // Sound Button Callbacks
     private void OnMasterVolumeChanged(float value)
     {
@@ -2068,6 +2173,21 @@ public class OptionsMenu : ControlWithInput
         UpdateResetSaveButtonState();
     }
 
+    private void OnMouseEdgePanToggled(bool pressed)
+    {
+        Settings.Instance.PanStrategyViewWithMouse.Value = pressed;
+        mouseEdgePanSensitivity.Editable = pressed;
+
+        UpdateResetSaveButtonState();
+    }
+
+    private void OnMouseEdgePanSensitivityChanged(float value)
+    {
+        Settings.Instance.PanStrategyViewMouseSpeed.Value = value;
+
+        UpdateResetSaveButtonState();
+    }
+
     private void OnOpenDeadzoneConfigurationPressed()
     {
         GUICommon.Instance.PlayButtonPressSound();
@@ -2160,6 +2280,18 @@ public class OptionsMenu : ControlWithInput
     private void OnJSONDebugModeSelected(int index)
     {
         Settings.Instance.JSONDebugMode.Value = JSONDebugIndexToMode(index);
+
+        UpdateResetSaveButtonState();
+    }
+
+    private void OnScreenEffectSelected(int index)
+    {
+        var effect = SimulationParameters.Instance.GetScreenEffectByIndex(index);
+
+        if (effect == SimulationParameters.Instance.GetScreenEffectByIndex(0))
+            effect = null;
+
+        Settings.Instance.CurrentScreenEffect.Value = effect;
 
         UpdateResetSaveButtonState();
     }
